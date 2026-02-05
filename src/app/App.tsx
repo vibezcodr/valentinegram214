@@ -11,29 +11,36 @@ export default function App() {
   const [noButtonPosition, setNoButtonPosition] = useState({ x: 0, y: 0 });
   const [showQuestion, setShowQuestion] = useState(true);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const noButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Handle mouse movement to make the "No, thanks" button run away
-  const handleMouseMove = (e: React.MouseEvent) => {
+  useEffect(() => {
+    // Detect if device is mobile/touch
+    setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
+
+  // Handle mouse/touch movement to make the "Return to sender" button run away
+  const handlePointerMove = (clientX: number, clientY: number) => {
     if (!noButtonRef.current || isDancing) return;
 
     const button = noButtonRef.current.getBoundingClientRect();
-    const mouseX = e.clientX;
-    const mouseY = e.clientY;
 
     const buttonCenterX = button.left + button.width / 2;
     const buttonCenterY = button.top + button.height / 2;
 
-    const distanceX = mouseX - buttonCenterX;
-    const distanceY = mouseY - buttonCenterY;
+    const distanceX = clientX - buttonCenterX;
+    const distanceY = clientY - buttonCenterY;
     const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
 
-    // If mouse is within 120px of the button, move it away
-    if (distance < 120) {
+    // Mobile: larger detection radius and bigger jumps for more playful interaction
+    const detectionRadius = isMobile ? 180 : 120;
+    const moveDistance = isMobile ? 150 : 100;
+
+    // If pointer is within detection radius, move button away
+    if (distance < detectionRadius) {
       const angle = Math.atan2(distanceY, distanceX);
-      const moveDistance = 100;
       
-      // Calculate new position (move away from cursor)
+      // Calculate new position (move away from pointer)
       let newX = noButtonPosition.x - Math.cos(angle) * moveDistance;
       let newY = noButtonPosition.y - Math.sin(angle) * moveDistance;
 
@@ -60,8 +67,21 @@ export default function App() {
 
       setNoButtonPosition({ x: newX, y: newY });
     } else {
-      // Return to original position when mouse is far away
+      // Return to original position when pointer is far away
       setNoButtonPosition({ x: 0, y: 0 });
+    }
+  };
+
+  // Handle mouse movement
+  const handleMouseMove = (e: React.MouseEvent) => {
+    handlePointerMove(e.clientX, e.clientY);
+  };
+
+  // Handle touch movement for mobile
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) {
+      const touch = e.touches[0];
+      handlePointerMove(touch.clientX, touch.clientY);
     }
   };
 
@@ -75,6 +95,7 @@ export default function App() {
     <div 
       className="size-full flex items-center justify-center bg-gradient-to-br from-pink-100 via-red-50 to-pink-200 overflow-hidden relative"
       onMouseMove={handleMouseMove}
+      onTouchMove={handleTouchMove}
     >
       {/* Floating hearts background */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
@@ -210,8 +231,10 @@ export default function App() {
                 }}
                 transition={{
                   type: 'spring',
-                  stiffness: 50,
-                  damping: 20
+                  stiffness: isMobile ? 300 : 100,
+                  damping: isMobile ? 15 : 20,
+                  mass: 0.5,
+                  bounce: 0.6
                 }}
                 className="px-6 py-3 sm:px-8 bg-gray-300 text-gray-700 rounded-full font-semibold text-base sm:text-lg shadow-lg hover:bg-gray-400 transition-colors"
               >
