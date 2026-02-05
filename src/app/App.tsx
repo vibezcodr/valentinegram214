@@ -12,11 +12,22 @@ export default function App() {
   const [showQuestion, setShowQuestion] = useState(true);
   const [showConfetti, setShowConfetti] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [buttonScale, setButtonScale] = useState(1);
   const noButtonRef = useRef<HTMLButtonElement>(null);
+  const returnTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Detect if device is mobile/touch
     setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
+
+  // Clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (returnTimeoutRef.current) {
+        clearTimeout(returnTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Handle mouse/touch movement to make the "Return to sender" button run away
@@ -89,6 +100,60 @@ export default function App() {
     setShowQuestion(false);
     setIsDancing(true);
     setShowConfetti(true);
+  };
+
+  // Handle button tap/click - make it bounce away dramatically
+  const handleNoButtonClick = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!noButtonRef.current || isDancing) return;
+
+    // Clear any existing return timeout
+    if (returnTimeoutRef.current) {
+      clearTimeout(returnTimeoutRef.current);
+    }
+
+    // Calculate random direction to bounce
+    const randomAngle = Math.random() * Math.PI * 2;
+    const bounceDistance = isMobile ? 200 : 150;
+
+    const button = noButtonRef.current.getBoundingClientRect();
+    let newX = Math.cos(randomAngle) * bounceDistance;
+    let newY = Math.sin(randomAngle) * bounceDistance;
+
+    // Calculate future position after bounce
+    const futureLeft = button.left + newX;
+    const futureTop = button.top + newY;
+    const futureRight = futureLeft + button.width;
+    const futureBottom = futureTop + button.height;
+
+    // Keep button within viewport bounds
+    const padding = 20;
+    if (futureLeft < padding) {
+      newX = padding - button.left;
+    }
+    if (futureRight > window.innerWidth - padding) {
+      newX = window.innerWidth - padding - button.right;
+    }
+    if (futureTop < padding) {
+      newY = padding - button.top;
+    }
+    if (futureBottom > window.innerHeight - padding) {
+      newY = window.innerHeight - padding - button.bottom;
+    }
+
+    // Apply bounce with scale effect
+    setNoButtonPosition({ x: newX, y: newY });
+    setButtonScale(0.9);
+
+    // Reset scale after brief moment
+    setTimeout(() => setButtonScale(1), 100);
+
+    // Return to original position after 1.5 seconds
+    returnTimeoutRef.current = setTimeout(() => {
+      setNoButtonPosition({ x: 0, y: 0 });
+    }, 1500);
   };
 
   return (
@@ -228,15 +293,19 @@ export default function App() {
                 animate={{
                   x: noButtonPosition.x,
                   y: noButtonPosition.y,
+                  scale: buttonScale,
+                  rotate: noButtonPosition.x !== 0 ? [0, -10, 10, -5, 5, 0] : 0,
                 }}
                 transition={{
                   type: 'spring',
-                  stiffness: isMobile ? 300 : 100,
-                  damping: isMobile ? 15 : 20,
+                  stiffness: 400,
+                  damping: 15,
                   mass: 0.5,
-                  bounce: 0.6
+                  bounce: 0.6,
                 }}
-                className="px-6 py-3 sm:px-8 bg-gray-300 text-gray-700 rounded-full font-semibold text-base sm:text-lg shadow-lg hover:bg-gray-400 transition-colors"
+                className="px-6 py-3 sm:px-8 bg-gray-300 text-gray-700 rounded-full font-semibold text-base sm:text-lg shadow-lg hover:bg-gray-400 transition-colors active:scale-90"
+                onClick={handleNoButtonClick}
+                onTouchStart={handleNoButtonClick}
               >
                 Return to sender
               </motion.button>
