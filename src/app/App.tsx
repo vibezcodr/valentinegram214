@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion } from 'motion/react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import Frame1 from '../imports/Frame1';
 import Frame3 from '../imports/Frame3';
 import Heart from '../imports/Heart';
@@ -13,8 +13,14 @@ export default function App() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [buttonScale, setButtonScale] = useState(1);
+  const [dancingEmoji, setDancingEmoji] = useState<string | null>(null);
   const noButtonRef = useRef<HTMLButtonElement>(null);
   const returnTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastMoveTime = useRef<number>(0);
+  const shouldReduceMotion = useReducedMotion();
+
+  // Replace with your phone number (format: +1234567890 for US)
+  const YOUR_PHONE_NUMBER = '';
 
   useEffect(() => {
     // Detect if device is mobile/touch
@@ -31,8 +37,13 @@ export default function App() {
   }, []);
 
   // Handle mouse/touch movement to make the "Return to sender" button run away
-  const handlePointerMove = (clientX: number, clientY: number) => {
+  const handlePointerMove = useCallback((clientX: number, clientY: number) => {
     if (!noButtonRef.current || isDancing) return;
+
+    // Throttle pointer tracking on mobile (16ms ~= 60fps)
+    const now = Date.now();
+    if (isMobile && now - lastMoveTime.current < 16) return;
+    lastMoveTime.current = now;
 
     const button = noButtonRef.current.getBoundingClientRect();
 
@@ -81,7 +92,7 @@ export default function App() {
       // Return to original position when pointer is far away
       setNoButtonPosition({ x: 0, y: 0 });
     }
-  };
+  }, [isDancing, isMobile, noButtonPosition.x, noButtonPosition.y]);
 
   // Handle mouse movement
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -100,6 +111,22 @@ export default function App() {
     setShowQuestion(false);
     setIsDancing(true);
     setShowConfetti(true);
+  };
+
+  // Handle emoji click to draft SMS
+  const handleEmojiClick = (emoji: string) => {
+    // Trigger dance animation
+    setDancingEmoji(emoji);
+    
+    // Wait for animation, then open SMS
+    setTimeout(() => {
+      const message = `Rachael treat me to a ${emoji}`;
+      const url = `sms:${YOUR_PHONE_NUMBER}?body=${encodeURIComponent(message)}`;
+      window.location.href = url;
+      
+      // Reset dancing state
+      setDancingEmoji(null);
+    }, 600);
   };
 
   // Handle button tap/click - make it bounce away dramatically
@@ -163,48 +190,55 @@ export default function App() {
       onTouchMove={handleTouchMove}
     >
       {/* Floating hearts background */}
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-        <motion.div
-          className="absolute top-10 left-10 w-12 h-12 sm:w-16 sm:h-16"
-          animate={{ y: [0, -20, 0], x: [0, 10, 0], rotate: [0, 10, 0] }}
-          transition={{ duration: 5, repeat: Infinity, repeatType: 'loop', ease: 'easeInOut' }}
-        >
-          <Heart />
-        </motion.div>
-        <motion.div
-          className="absolute top-20 right-20 w-10 h-10 sm:w-14 sm:h-14"
-          animate={{ y: [0, -15, 0], x: [0, -10, 0], rotate: [0, -15, 0] }}
-          transition={{ duration: 6, repeat: Infinity, repeatType: 'loop', ease: 'easeInOut', delay: 1 }}
-        >
-          <HeartPink />
-        </motion.div>
-        <motion.div
-          className="absolute bottom-32 left-16 w-8 h-8 sm:w-12 sm:h-12"
-          animate={{ y: [0, -10, 0], x: [0, 15, 0], rotate: [0, 20, 0] }}
-          transition={{ duration: 7, repeat: Infinity, repeatType: 'loop', ease: 'easeInOut', delay: 2 }}
-        >
-          <HeartCoral />
-        </motion.div>
-        <motion.div
-          className="absolute bottom-20 right-32 w-10 h-10 sm:w-14 sm:h-14"
-          animate={{ y: [0, -20, 0], x: [0, -5, 0], rotate: [0, -10, 0] }}
-          transition={{ duration: 5.5, repeat: Infinity, repeatType: 'loop', ease: 'easeInOut', delay: 0.5 }}
-        >
-          <Heart />
-        </motion.div>
-        <motion.div
-          className="absolute top-40 left-1/3 w-6 h-6 sm:w-10 sm:h-10"
-          animate={{ y: [0, -25, 0], x: [0, 5, 0], rotate: [0, 15, 0] }}
-          transition={{ duration: 6.5, repeat: Infinity, repeatType: 'loop', ease: 'easeInOut', delay: 1.5 }}
-        >
-          <HeartCoral />
-        </motion.div>
-      </div>
+      {!shouldReduceMotion && (
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+          <motion.div
+            className="absolute top-10 left-10 w-12 h-12 sm:w-16 sm:h-16"
+            style={{ willChange: 'transform' }}
+            animate={{ y: [0, -20, 0], x: [0, 10, 0], rotate: [0, 10, 0] }}
+            transition={{ duration: 5, repeat: Infinity, repeatType: 'loop', ease: 'easeInOut' }}
+          >
+            <Heart />
+          </motion.div>
+          <motion.div
+            className="absolute top-20 right-20 w-10 h-10 sm:w-14 sm:h-14"
+            style={{ willChange: 'transform' }}
+            animate={{ y: [0, -15, 0], x: [0, -10, 0], rotate: [0, -15, 0] }}
+            transition={{ duration: 6, repeat: Infinity, repeatType: 'loop', ease: 'easeInOut', delay: 1 }}
+          >
+            <HeartPink />
+          </motion.div>
+          <motion.div
+            className="absolute bottom-32 left-16 w-8 h-8 sm:w-12 sm:h-12"
+            style={{ willChange: 'transform' }}
+            animate={{ y: [0, -10, 0], x: [0, 15, 0], rotate: [0, 20, 0] }}
+            transition={{ duration: 7, repeat: Infinity, repeatType: 'loop', ease: 'easeInOut', delay: 2 }}
+          >
+            <HeartCoral />
+          </motion.div>
+          <motion.div
+            className="absolute bottom-20 right-32 w-10 h-10 sm:w-14 sm:h-14"
+            style={{ willChange: 'transform' }}
+            animate={{ y: [0, -20, 0], x: [0, -5, 0], rotate: [0, -10, 0] }}
+            transition={{ duration: 5.5, repeat: Infinity, repeatType: 'loop', ease: 'easeInOut', delay: 0.5 }}
+          >
+            <Heart />
+          </motion.div>
+          <motion.div
+            className="absolute top-40 left-1/3 w-6 h-6 sm:w-10 sm:h-10"
+            style={{ willChange: 'transform' }}
+            animate={{ y: [0, -25, 0], x: [0, 5, 0], rotate: [0, 15, 0] }}
+            transition={{ duration: 6.5, repeat: Infinity, repeatType: 'loop', ease: 'easeInOut', delay: 1.5 }}
+          >
+            <HeartCoral />
+          </motion.div>
+        </div>
+      )}
 
       {/* Heart confetti burst on "Yes" click */}
       {showConfetti && (
         <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-          {[...Array(30)].map((_, i) => {
+          {[...Array(isMobile ? 15 : 30)].map((_, i) => {
             const randomAngle = (Math.random() * 360);
             const randomDistance = Math.random() * 300 + 100;
             const randomX = Math.cos(randomAngle * Math.PI / 180) * randomDistance;
@@ -218,6 +252,7 @@ export default function App() {
                 style={{
                   left: '50%',
                   top: '30%',
+                  willChange: 'transform, opacity',
                 }}
                 initial={{ 
                   x: 0, 
@@ -230,7 +265,7 @@ export default function App() {
                   x: randomX,
                   y: randomY + 200,
                   scale: [0, 1, 0.8],
-                  rotate: Math.random() * 360,
+                  rotate: shouldReduceMotion ? 0 : Math.random() * 360,
                   opacity: [1, 1, 0]
                 }}
                 transition={{
@@ -250,12 +285,13 @@ export default function App() {
         {/* Snoopy with enhanced jumping and wiggling animation */}
         <motion.div
           className="w-48 h-48 sm:w-64 sm:h-64"
-          animate={isDancing ? {
+          style={{ willChange: isDancing ? 'transform' : 'auto' }}
+          animate={isDancing && !shouldReduceMotion ? {
             y: [0, -50, 0, -40, 0, -45, 0],
             rotate: [0, -5, 5, -3, 3, 0, 0],
             scale: [1, 1.05, 0.95, 1.05, 0.95, 1, 1],
           } : {}}
-          transition={isDancing ? {
+          transition={isDancing && !shouldReduceMotion ? {
             duration: 1.2,
             repeat: Infinity,
             repeatType: 'loop',
@@ -279,10 +315,13 @@ export default function App() {
             <div className="flex flex-col sm:flex-row gap-4 relative w-full sm:w-auto">
               {/* Yes button */}
               <motion.button
-                whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleYesClick}
-                className="px-6 py-3 sm:px-8 bg-red-500 text-white rounded-full font-semibold text-base sm:text-lg shadow-lg hover:bg-red-600 transition-colors"
+                className="px-6 py-3 sm:px-8 bg-red-500 text-white rounded-full font-semibold text-base sm:text-lg shadow-lg hover:bg-red-600 transition-colors active:bg-red-700 select-none"
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  touchAction: 'manipulation'
+                }}
               >
                 Yes, I will!
               </motion.button>
@@ -294,7 +333,6 @@ export default function App() {
                   x: noButtonPosition.x,
                   y: noButtonPosition.y,
                   scale: buttonScale,
-                  rotate: noButtonPosition.x !== 0 ? [0, -10, 10, -5, 5, 0] : 0,
                 }}
                 transition={{
                   type: 'spring',
@@ -303,7 +341,11 @@ export default function App() {
                   mass: 0.5,
                   bounce: 0.6,
                 }}
-                className="px-6 py-3 sm:px-8 bg-gray-300 text-gray-700 rounded-full font-semibold text-base sm:text-lg shadow-lg hover:bg-gray-400 transition-colors active:scale-90"
+                className="px-6 py-3 sm:px-8 bg-gray-300 text-gray-700 rounded-full font-semibold text-base sm:text-lg shadow-lg hover:bg-gray-400 transition-colors active:bg-gray-500 select-none"
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  touchAction: 'manipulation'
+                }}
                 onClick={handleNoButtonClick}
                 onTouchStart={handleNoButtonClick}
               >
@@ -322,7 +364,62 @@ export default function App() {
               Yay!
             </h1>
             <p className="text-lg sm:text-2xl text-red-500">
-              Text 🥐 or 🍪 to me, and I'll treat you to one!
+              Tap{' '}
+              <motion.button
+                onClick={() => handleEmojiClick('☕')}
+                animate={dancingEmoji === '☕' ? {
+                  y: [0, -20, 0],
+                  rotate: [0, -15, 15, 0],
+                  scale: [1, 1.3, 1],
+                } : {
+                  scale: [1, 1.1, 1],
+                }}
+                transition={dancingEmoji === '☕' ? {
+                  duration: 0.6,
+                  ease: 'easeInOut',
+                } : {
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+                whileTap={{ scale: 0.9 }}
+                className="inline-block text-3xl sm:text-4xl cursor-pointer transition-all mx-1 select-none active:opacity-70"
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  touchAction: 'manipulation'
+                }}
+              >
+                ☕
+              </motion.button>
+              {' '}or{' '}
+              <motion.button
+                onClick={() => handleEmojiClick('🍪')}
+                animate={dancingEmoji === '🍪' ? {
+                  y: [0, -20, 0],
+                  rotate: [0, -15, 15, 0],
+                  scale: [1, 1.3, 1],
+                } : {
+                  scale: [1, 1.1, 1],
+                }}
+                transition={dancingEmoji === '🍪' ? {
+                  duration: 0.6,
+                  ease: 'easeInOut',
+                } : {
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                  delay: 0.75,
+                }}
+                whileTap={{ scale: 0.9 }}
+                className="inline-block text-3xl sm:text-4xl cursor-pointer transition-all mx-1 select-none active:opacity-70"
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  touchAction: 'manipulation'
+                }}
+              >
+                🍪
+              </motion.button>
+              {', '}and I'll treat you to one!
             </p>
           </motion.div>
         )}
